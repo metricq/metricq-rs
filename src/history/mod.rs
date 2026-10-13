@@ -1,7 +1,6 @@
-//!
+//! History client module for querying and managing historical metric data.
 
 mod client;
-mod error;
 pub(crate) mod request;
 pub(crate) mod response;
 

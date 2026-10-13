@@ -1,4 +1,6 @@
-//!
+//! Client implementation for querying historical metric data via RPC.
+
+use tracing::{debug, instrument};
 
 use crate::{
     error::MetricQResult,
@@ -7,7 +9,7 @@ use crate::{
     types::{MetricId, TimeDelta, Timestamp},
 };
 
-///
+/// Client for interacting with the `MetricQ` history service to retrieve past metric values and aggregates.
 #[derive(Debug, Clone)]
 pub struct HistoryClient {
     rpc: RpcClient,
@@ -15,17 +17,20 @@ pub struct HistoryClient {
 }
 
 impl HistoryClient {
+    /// Creates a new [`HistoryClient`].
     #[must_use]
     pub(crate) const fn new(rpc: RpcClient, exchange: ExchangeName) -> Self {
         Self { rpc, exchange }
     }
 
-    // TODO
-    /// .
+    /// Retrieves historical samples for the specified metric within a given time
+    /// range and interval.
     ///
     /// # Errors
     ///
-    /// This function will return an error if .
+    /// Returns an error if encoding the request fails, the RPC call fails,
+    /// or the response cannot be decoded.
+    #[instrument(skip(self), fields(%metric, ?start, ?end, ?interval))]
     pub async fn get(
         &self,
         metric: MetricId,
@@ -33,6 +38,7 @@ impl HistoryClient {
         end: Timestamp,
         interval: TimeDelta,
     ) -> MetricQResult<HistoryResponse> {
+        debug!("building and encoding history request");
         let request = HistoryRequest {
             start,
             end,
@@ -42,11 +48,13 @@ impl HistoryClient {
 
         let payload = request.encode()?;
 
+        debug!(exchange = %self.exchange, "sending history rpc request");
         let response = self
             .rpc
-            .call(self.exchange.clone(), &metric.into(), payload)
+            .call(self.exchange.clone(), metric.into(), payload)
             .await?;
 
-        HistoryResponse::decode(response)
+        debug!("decoding history response payload");
+        HistoryResponse::decode(&response)
     }
 }

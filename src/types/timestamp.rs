@@ -18,8 +18,9 @@ impl Timestamp {
         self.0
     }
 
-    ///
-    pub fn from_nanos(nanos: i64) -> Self {
+    /// Creates a new [`Timestamp`] from the given value in nanoseconds.
+    #[must_use]
+    pub const fn from_nanos(nanos: i64) -> Self {
         Self(nanos)
     }
 }

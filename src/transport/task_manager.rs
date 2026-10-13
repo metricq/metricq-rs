@@ -2,6 +2,7 @@
 
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info, instrument};
 
 /// Manages the lifetime of background taksks.
 ///
@@ -10,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 ///
 /// Shutdown is initiated by cancelling the shared token and waiting for
 /// all spawned tasks to complete.
+#[derive(Debug)]
 pub(crate) struct TaskManager {
     token: CancellationToken,
     tasks: JoinSet<()>,
@@ -24,10 +26,7 @@ impl TaskManager {
         }
     }
 
-    /// Returns the shared cancellation token.
-    ///
-    /// Background taksks should monitor this token and
-    /// terminate promptly when cancellation is requested.
+    /// Returns the shutdown token of the task manager.
     pub fn token(&self) -> CancellationToken {
         self.token.clone()
     }
@@ -35,10 +34,12 @@ impl TaskManager {
     /// Spawns a background taks managed by this instance.
     ///
     /// The taks is awaited during [`TaskManager::shutdown`].
+    #[instrument(skip(self, future))]
     pub fn spawn<F>(&mut self, future: F)
     where
         F: Future<Output = ()> + Send + 'static,
     {
+        debug!("spawning new background task");
         self.tasks.spawn(future);
     }
 
@@ -47,10 +48,32 @@ impl TaskManager {
     /// Shutdown is cooperative: tasks are notified by cancelling the shared
     /// [`CancellationToken`]. Each task is expected to observe the token and
     /// exit in a timely manner.
+    #[instrument(skip(self))]
     pub async fn shutdown(mut self) {
+        info!("initiating task manager shutdown");
         self.token.cancel();
 
-        while self.tasks.join_next().await.is_some() {}
+        let mut count = 0;
+        while let Some(res) = self.tasks.join_next().await {
+            count += 1;
+            match res {
+                Ok(()) => {
+                    debug!(task_index = count, "backgorund task completed successfully");
+                }
+                Err(err) => {
+                    error!(
+                        task_index = count,
+                        ?err,
+                        "background task panicked or failed to join"
+                    );
+                }
+            }
+        }
+
+        info!(
+            total_tasks = count,
+            "all background tasks completed and shut down"
+        );
     }
 }
 

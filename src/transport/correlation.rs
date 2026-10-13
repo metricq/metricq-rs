@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use tokio::sync::{Mutex, oneshot::Sender};
+use tracing::debug;
 
 use crate::{
     error::{MetricQError, MetricQResult},
@@ -41,6 +42,7 @@ impl<T> CorrelationRegistry<T> {
     /// The provided sender will receive the response associated with the
     /// given correlation id.
     pub async fn insert(&self, id: CorrelationId, sender: Sender<T>) {
+        debug!(%id, "registering correlation id in registry");
         self.inner.lock().await.insert(id, sender);
     }
 
@@ -51,11 +53,11 @@ impl<T> CorrelationRegistry<T> {
     /// Returns an error if no request is registered under the given
     /// correlation id.
     pub async fn remove(&self, id: &CorrelationId) -> MetricQResult<()> {
-        self.inner
-            .lock()
-            .await
-            .remove(id)
-            .ok_or(MetricQError::MissingCorrelationEntry(id.clone()))?;
+        debug!(%id, "removing correlation id from registry");
+        self.inner.lock().await.remove(id).ok_or_else(|| {
+            debug!(%id, "failed to remove correlation id: entry not found");
+            MetricQError::MissingCorrelationEntry(id.clone())
+        })?;
         Ok(())
     }
 
@@ -66,8 +68,12 @@ impl<T> CorrelationRegistry<T> {
     ///
     /// Unknown correlation ids are silently ignored.
     pub async fn dispatch(&self, id: &str, value: T) {
-        if let Some(sender) = self.inner.lock().await.remove(id) {
+        let val = self.inner.lock().await.remove(id);
+        if let Some(sender) = val {
+            debug!(%id, "dispatching response to waiting request");
             let _ = sender.send(value);
+        } else {
+            debug!(%id, "received response for unknown or expired correlation id (ignoring)");
         }
     }
 }

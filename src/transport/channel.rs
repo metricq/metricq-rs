@@ -13,6 +13,7 @@ use lapin::{
     },
     types::FieldTable,
 };
+use tracing::{debug, instrument};
 
 use crate::{
     error::MetricQResult,
@@ -30,7 +31,7 @@ pub(crate) struct ChannelHandle {
 }
 
 impl ChannelHandle {
-    pub fn new(inner: Channel) -> Self {
+    pub const fn new(inner: Channel) -> Self {
         Self { inner }
     }
 
@@ -38,11 +39,13 @@ impl ChannelHandle {
     ///
     /// This is intended for transport code that requires functionality not
     /// yet exposed by `ChannelHandle`.
-    pub fn inner(&self) -> &Channel {
+    #[allow(unused)]
+    pub const fn inner(&self) -> &Channel {
         &self.inner
     }
 
     /// Publishes a message to an exchange.
+    #[instrument(skip(self, properties, payload), fields(%exchange, %routing_key))]
     pub async fn publish(
         &self,
         exchange: ExchangeName,
@@ -50,6 +53,7 @@ impl ChannelHandle {
         properties: BasicProperties,
         payload: Bytes,
     ) -> MetricQResult<()> {
+        debug!("publishing message to exchange");
         self.inner
             .basic_publish(
                 exchange.into(),
@@ -61,11 +65,15 @@ impl ChannelHandle {
             .await?
             .await?;
 
+        debug!("message published successfully");
         Ok(())
     }
 
     /// Declares a durable queue using the default queue options.
+    #[allow(unused)]
+    #[instrument(skip(self), fields(%name))]
     pub async fn declare_queue(&self, name: QueueName) -> MetricQResult<()> {
+        debug!("declaring durable queue");
         self.inner
             .queue_declare(
                 name.into(),
@@ -73,12 +81,15 @@ impl ChannelHandle {
                 FieldTable::default(),
             )
             .await?;
+        debug!("queue declared successfully");
         Ok(())
     }
 
     /// Starts consuming messages from a queue.
+    #[instrument(skip(self), fields(%queue, %consumer_tag))]
     pub async fn consume(&self, queue: QueueName, consumer_tag: &str) -> MetricQResult<Consumer> {
-        Ok(self
+        debug!("starting basic consumer on queue");
+        let consumer = self
             .inner
             .basic_consume(
                 queue.into(),
@@ -86,16 +97,21 @@ impl ChannelHandle {
                 BasicConsumeOptions::default(),
                 FieldTable::default(),
             )
-            .await?)
+            .await?;
+        debug!("consumer started successfully");
+        Ok(consumer)
     }
 
     /// Binds a queue to an exchange using the given routing key.
+    #[allow(unused)]
+    #[instrument(skip(self), fields(%queue, %exchange, %routing_key))]
     pub async fn bind_queue(
         &self,
         queue: QueueName,
         exchange: ExchangeName,
         routing_key: RoutingKey,
     ) -> MetricQResult<()> {
+        debug!("binding queue to exchange");
         self.inner
             .queue_bind(
                 queue.into(),
@@ -105,11 +121,15 @@ impl ChannelHandle {
                 FieldTable::default(),
             )
             .await?;
+        debug!("queue bound successfully");
         Ok(())
     }
 
     /// Declares a topic exchange.
+    #[allow(unused)]
+    #[instrument(skip(self), fields(%exchange))]
     pub async fn declare_exchange(&self, exchange: ExchangeName) -> MetricQResult<()> {
+        debug!("declaring topic exchange");
         self.inner
             .exchange_declare(
                 exchange.into(),
@@ -118,6 +138,7 @@ impl ChannelHandle {
                 FieldTable::default(),
             )
             .await?;
+        debug!("exchange declared successfully");
         Ok(())
     }
 
@@ -128,6 +149,7 @@ impl ChannelHandle {
     ///
     /// This is primarily used for temporary RPC reply queues.
     pub async fn declare_temporary_queue(&self) -> MetricQResult<QueueName> {
+        debug!("declared temporary exclusive queue");
         let queue = self
             .inner
             .queue_declare(
@@ -142,12 +164,18 @@ impl ChannelHandle {
                 FieldTable::default(),
             )
             .await?;
+        let name = queue.name().to_string();
+        debug!(queue_name = %name, "temporary queue declared successfully");
         Ok(queue.name().to_string())
     }
 
     /// Gracefully closes the channel.
+    #[allow(unused)]
+    #[instrument(skip(self))]
     pub async fn close(&self) -> MetricQResult<()> {
+        debug!("closing amqp channel");
         self.inner().close(200, "shutdown".into()).await?;
+        debug!("amqp channel closed successfully");
         Ok(())
     }
 }

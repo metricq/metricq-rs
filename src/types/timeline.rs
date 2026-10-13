@@ -21,13 +21,22 @@ pub enum Timeline {
 impl Timeline {
     /// Returns whether the timeline contains no data points.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
-        todo!()
+    pub const fn is_empty(&self) -> bool {
+        match &self {
+            Self::Empty => true,
+            Self::Aggregates(aggrs) if aggrs.is_empty() => true,
+            Self::Values(vals) if vals.is_empty() => true,
+            _ => false,
+        }
     }
 
     /// Returns the number of data points contained in the timeline.
     #[must_use]
-    pub fn len(&self) -> usize {
-        todo!()
+    pub const fn len(&self) -> usize {
+        match &self {
+            Self::Empty => 0,
+            Self::Aggregates(aggrs) => aggrs.len(),
+            Self::Values(vals) => vals.len(),
+        }
     }
 }

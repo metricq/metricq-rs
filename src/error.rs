@@ -15,6 +15,10 @@ pub enum MetricQError {
     #[error("connection failed")]
     Connection(#[from] lapin::Error),
 
+    /// Failed to reestablish connection with the broker.
+    #[error("failed to reestablish connection")]
+    Reconnect,
+
     /// RPC request failed.
     #[error("rpc request failed")]
     Rpc,
@@ -68,6 +72,10 @@ pub enum MetricQError {
     /// TODO
     #[error("failed to convert to/from bytes using protobuf: {0}")]
     ProtobufError(#[from] protobuf::Error),
+
+    /// TODO
+    #[error("failed to serialize to json")]
+    JsonSerialize(#[from] serde_json::Error),
 }
 
 /// Result type used throughout the `MetricQ` client.

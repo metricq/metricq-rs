@@ -1,4 +1,4 @@
-//!
+//! Protocol buffer serialization utilities for history requests and responses.
 
 mod history;
 

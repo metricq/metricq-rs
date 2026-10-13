@@ -15,6 +15,7 @@ use lapin::{
 use tokio::select;
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, info, instrument};
 
 use crate::{
     error::MetricQResult,
@@ -49,9 +50,9 @@ pub(crate) trait MessageHandler: Send {
 /// - the consumer stream ends,
 /// - or message processing returns an error.
 pub(crate) struct ConsumerLoop<H> {
-    consumer: Consumer,
-    handler: H,
-    shutdown: CancellationToken,
+    pub consumer: Consumer,
+    pub handler: H,
+    pub shutdown: CancellationToken,
 }
 
 impl<H> ConsumerLoop<H>
@@ -65,30 +66,43 @@ where
     ///
     /// Every successfully received delivery is acknowledged according to the
     /// [`ConsumeResult`] returned by the handler.
+    #[instrument(skip(self))]
     pub async fn run(mut self) -> MetricQResult<()> {
+        info!("starting consumer loop");
+
         loop {
             select! {
-                _ = self.shutdown.cancelled() => {
+                () = self.shutdown.cancelled() => {
+                    info!("shutdown signal received, terminating consumer loop");
                     break;
                 }
 
                 next = self.consumer.next() => {
                     let Some(delivery) = next else {
+                        info!("consumer stream ended");
                         break;
                     };
 
                     let msg = IncomingMessage::from(delivery?);
+                    debug!(
+                        routing_key = %msg.routing_key,
+                        correlation_id = ?msg.correlation_id,
+                        payload_len = msg.payload.len(),
+                        "received incoming message"
+                    );
 
                     match self.handler.handle(&msg).await? {
 
                         ConsumeResult::Ack => {
-                            msg._delivery
+                            debug!("acknowledging message");
+                            msg.delivery
                                 .ack(BasicAckOptions::default())
                                 .await?;
                         }
 
                         ConsumeResult::Reject => {
-                            msg._delivery
+                            debug!("rejecting message without requeue");
+                            msg.delivery
                                 .reject(BasicRejectOptions {
                                     requeue: false,
                                 })
@@ -96,7 +110,8 @@ where
                         }
 
                         ConsumeResult::Requeue => {
-                            msg._delivery
+                            debug!("rejecting message with requeue");
+                            msg.delivery
                                 .reject(BasicRejectOptions {
                                     requeue: true,
                                 })
@@ -107,6 +122,7 @@ where
             }
         }
 
+        info!("consumer loop stopped successfully");
         Ok(())
     }
 }
@@ -123,13 +139,10 @@ pub(crate) struct IncomingMessage {
     /// Correlation identifier used for RPC request/response matching.
     pub correlation_id: Option<CorrelationId>,
 
-    /// Queue to which a reply should be sent.
-    pub reply_to: Option<String>,
-
     /// Raw message payload.
     pub payload: Bytes,
 
-    _delivery: Delivery,
+    delivery: Delivery,
 }
 
 impl From<Delivery> for IncomingMessage {
@@ -148,25 +161,19 @@ impl IncomingMessage {
             .as_ref()
             .map(ToString::to_string);
 
-        let reply_to = delivery
-            .properties
-            .reply_to()
-            .as_ref()
-            .map(ToString::to_string);
-
         let payload = delivery.data.clone().into();
 
         Self {
             routing_key,
             correlation_id,
-            reply_to,
             payload,
-            _delivery: delivery,
+            delivery,
         }
     }
 }
 
 /// Indicates how a processed message shouuld be acknowledged.
+#[allow(unused)]
 pub(crate) enum ConsumeResult {
     /// Acknowledge the message and remove it from the queue.
     Ack,

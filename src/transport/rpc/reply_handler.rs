@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use bytes::Bytes;
+use tracing::{debug, instrument, warn};
 
 use crate::{
     error::{MetricQError, MetricQResult},
@@ -41,14 +42,19 @@ impl RpcReplyHandler {
 
 #[async_trait]
 impl MessageHandler for RpcReplyHandler {
+    #[instrument(skip(self, msg), fields(correlation_id = ?msg.correlation_id))]
     async fn handle(&mut self, msg: &IncomingMessage) -> MetricQResult<ConsumeResult> {
-        let id = msg
-            .correlation_id
-            .as_deref()
-            .ok_or(MetricQError::MissingCorrelationId)?;
+        debug!("handling incoming rpc reply message");
 
+        let id = msg.correlation_id.as_deref().ok_or_else(|| {
+            warn!("received rpc reply message without correlation id");
+            MetricQError::MissingCorrelationId
+        })?;
+
+        debug!("dispatching rpc reply payload to correlation registry");
         self.registry.dispatch(id, msg.payload.clone()).await;
 
+        debug!("successfully processed and acknowledged rpc reply");
         Ok(ConsumeResult::Ack)
     }
 }

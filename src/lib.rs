@@ -29,4 +29,3 @@ pub mod protobuf;
 pub mod sink;
 pub mod transport;
 pub mod types;
-pub mod util;
