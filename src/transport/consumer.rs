@@ -34,7 +34,7 @@ use crate::{
 ///
 /// Returning an error aborts the consumer loop.
 #[async_trait]
-pub(crate) trait MessageHandler: Send {
+pub trait MessageHandler: Send {
     async fn handle(&mut self, msg: &IncomingMessage) -> MetricQResult<ConsumeResult>;
 }
 
@@ -49,7 +49,7 @@ pub(crate) trait MessageHandler: Send {
 /// - the shutdown token is cancelled,
 /// - the consumer stream ends,
 /// - or message processing returns an error.
-pub(crate) struct ConsumerLoop<H> {
+pub struct ConsumerLoop<H> {
     pub consumer: Consumer,
     pub handler: H,
     pub shutdown: CancellationToken,
@@ -132,7 +132,7 @@ where
 /// This type exposes the message metadata commonly used by `MetricQ`
 /// handlers while retaining ownership of the underlying delivery for
 /// acknowledgment by the consumer loop.
-pub(crate) struct IncomingMessage {
+pub struct IncomingMessage {
     /// AMQP routing key used to deliver the message.
     pub routing_key: RoutingKey,
 
@@ -174,7 +174,7 @@ impl IncomingMessage {
 
 /// Indicates how a processed message shouuld be acknowledged.
 #[allow(unused)]
-pub(crate) enum ConsumeResult {
+pub enum ConsumeResult {
     /// Acknowledge the message and remove it from the queue.
     Ack,
 

@@ -28,7 +28,7 @@ use crate::{
 /// Requests automatically time out if no response is received within
 /// the configured timeout.
 #[derive(Debug, Clone)]
-pub(crate) struct RpcClient {
+pub struct RpcClient {
     channel: Arc<RwLock<ChannelHandle>>,
     connection_manager: ConnectionManager,
     registry: Arc<CorrelationRegistry<Bytes>>,
@@ -159,5 +159,26 @@ impl RpcClient {
 
         debug!("successfully received rpc response");
         Ok(response)
+    }
+
+    pub async fn call_json<T: serde::de::DeserializeOwned>(
+        &self,
+        exchange: ExchangeName,
+        method: &str,
+        mut payload: serde_json::Value,
+    ) -> MetricQResult<T> {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert(
+                "function".to_string(),
+                serde_json::Value::String(method.to_string()),
+            );
+        }
+
+        let response_bytes = self
+            .call(exchange, method.to_string(), payload.to_string().into())
+            .await?;
+        let result = serde_json::from_slice(&response_bytes)?;
+
+        Ok(result)
     }
 }

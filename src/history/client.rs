@@ -4,9 +4,9 @@ use tracing::{debug, instrument};
 
 use crate::{
     error::MetricQResult,
-    history::{HistoryRequest, HistoryResponse, request::HistoryRequestType},
+    history::{HistoryRequest, HistoryResponse},
     transport::{rpc::client::RpcClient, types::ExchangeName},
-    types::{MetricId, TimeDelta, Timestamp},
+    types::MetricId,
 };
 
 /// Client for interacting with the `MetricQ` history service to retrieve past metric values and aggregates.
@@ -30,22 +30,28 @@ impl HistoryClient {
     ///
     /// Returns an error if encoding the request fails, the RPC call fails,
     /// or the response cannot be decoded.
-    #[instrument(skip(self), fields(%metric, ?start, ?end, ?interval))]
+    #[
+        instrument(
+            skip(self),
+            fields(
+                %metric,
+                start_time = ?request.start_time,
+                end_time = ?request.end_time,
+                interval_max = ?request.interval_max,
+                request_time = ?request.request_type
+            )
+        )
+    ]
     pub async fn get(
         &self,
         metric: MetricId,
-        start: Timestamp,
-        end: Timestamp,
-        interval: TimeDelta,
+        // start_time: Timestamp,
+        // end_time: Timestamp,
+        // interval_max: TimeDelta,
+        // request_type: HistoryRequestType,
+        request: HistoryRequest,
     ) -> MetricQResult<HistoryResponse> {
-        debug!("building and encoding history request");
-        let request = HistoryRequest {
-            start,
-            end,
-            interval,
-            type_: HistoryRequestType::Timeline,
-        };
-
+        debug!("encoding history request");
         let payload = request.encode()?;
 
         debug!(exchange = %self.exchange, "sending history rpc request");

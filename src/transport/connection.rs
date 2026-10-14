@@ -25,7 +25,7 @@ use crate::{
 /// should be obtained through this type instead of creating additional
 /// connections.
 #[derive(Debug, Clone)]
-pub(crate) struct ConnectionManager {
+pub struct ConnectionManager {
     pub uri: String,
     connection: Arc<RwLock<Connection>>,
     reconnect_policy: ReconnectPolicy,

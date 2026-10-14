@@ -8,24 +8,22 @@ use crate::{
     error::MetricQResult,
     protobuf::metricq::datachunk::DataChunk,
     transport::consumer::{ConsumeResult, IncomingMessage, MessageHandler},
-    types::Timestamp,
+    types::{
+        Timestamp,
+        value::{MetricTimeValue, TimeValue},
+    },
 };
 
 /// A trait for receiving real-time metric data points from a sink subscription.
 #[async_trait]
 pub trait DataConsumer: Send {
     /// Called when a new metric data point is received.
-    async fn on_data(
-        &mut self,
-        metric: &str,
-        timestamp: Timestamp,
-        value: f64,
-    ) -> MetricQResult<()>;
+    async fn on_data(&mut self, mtv: &MetricTimeValue) -> MetricQResult<()>;
 }
 
 /// Adapts a [`DataConsumer`] into transport-level [`MessageHandler`] to parse
 /// and dispatch incoming data chunks.
-pub(crate) struct SinkMessageHandler<C> {
+pub struct SinkMessageHandler<C> {
     consumer: C,
 }
 
@@ -60,9 +58,9 @@ where
 
         for (delta, &value) in data.time_delta.iter().zip(data.value.iter()) {
             timestamp += delta;
-            self.consumer
-                .on_data(metric, Timestamp::from_nanos(timestamp), value)
-                .await?;
+            let tv = TimeValue::new(Timestamp::from_nanos(timestamp), value);
+            let mtv = MetricTimeValue::new(metric.clone().into(), tv);
+            self.consumer.on_data(&mtv).await?;
         }
 
         debug!("successfully processed data chunk");

@@ -25,7 +25,7 @@ use crate::{
 /// - Each entry is removed exactly once.
 /// - Dispatch consumes the registered entry.
 #[derive(Debug)]
-pub(crate) struct CorrelationRegistry<T> {
+pub struct CorrelationRegistry<T> {
     inner: Mutex<HashMap<CorrelationId, Sender<T>>>,
 }
 

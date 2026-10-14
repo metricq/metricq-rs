@@ -12,6 +12,14 @@ pub struct TimeValue {
     pub value: f64,
 }
 
+impl TimeValue {
+    /// Create a new [`TimeValue`] instance.
+    #[must_use]
+    pub const fn new(timestamp: Timestamp, value: f64) -> Self {
+        Self { timestamp, value }
+    }
+}
+
 /// A metric measurement associated with its metric identifier.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MetricTimeValue {
@@ -20,4 +28,12 @@ pub struct MetricTimeValue {
 
     /// Timestamped metric value.
     pub sample: TimeValue,
+}
+
+impl MetricTimeValue {
+    /// Create a new [`MetricTimeValue`] instance.
+    #[must_use]
+    pub const fn new(metric: MetricId, sample: TimeValue) -> Self {
+        Self { metric, sample }
+    }
 }

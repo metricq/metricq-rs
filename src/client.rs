@@ -6,9 +6,11 @@
 
 use std::{sync::Arc, time::Duration};
 
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument};
 
 use crate::{
+    DataConsumer,
     config::{ClientConfig, ReconnectPolicy},
     error::MetricQResult,
     history::HistoryClient,
@@ -116,6 +118,12 @@ impl Client {
         HistoryClient::new(self.rpc.clone(), self.history_exchange.clone())
     }
 
+    /// Returns the cancellation token of the client.
+    #[must_use]
+    pub fn shutdown_token(&self) -> CancellationToken {
+        self.task_manager.token()
+    }
+
     /// Creates a new [`SinkClient`] for real-time metric ingestion and subsciptions.
     #[must_use]
     pub fn sink(&self) -> SinkClient {
@@ -154,5 +162,21 @@ impl Client {
         info!("client closed successfully");
 
         Ok(())
+    }
+
+    /// Convenience wrapper around `self.sink().subscribe(...)`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the RPC request fails, the response cannot be parsed,
+    /// connection to the data server fails, or merge consumption encounters an error.
+    pub async fn subscribe<C, S>(&self, metrics: &[S], consumer: C) -> MetricQResult<()>
+    where
+        C: DataConsumer + Send,
+        S: AsRef<str> + serde::Serialize + std::fmt::Debug + Send + Sync,
+    {
+        self.sink()
+            .subscribe(metrics, consumer, self.shutdown_token())
+            .await
     }
 }

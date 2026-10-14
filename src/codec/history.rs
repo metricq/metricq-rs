@@ -10,9 +10,10 @@ use crate::{
     error::MetricQResult,
     history::{
         HistoryRequest, HistoryResponse,
+        request::HistoryRequestType,
         response::{HistorySample, HistoryValue},
     },
-    protobuf::metricq,
+    protobuf::metricq::{self, history::history_request},
     types::{Aggregate, MetricId, Timestamp},
 };
 
@@ -98,16 +99,22 @@ pub fn decode_response(payload: &Bytes) -> MetricQResult<HistoryResponse> {
 ///
 /// Returns an error if the request message cannot be serialized into bytes.
 #[allow(clippy::cast_possible_truncation)]
-#[instrument(skip(request), fields(start = ?request.start, end = ?request.end, interval = ?request.interval))]
+#[instrument(skip(request), fields(start = ?request.start_time, end = ?request.end_time, interval = ?request.interval_max))]
 pub fn encode_request(request: &HistoryRequest) -> MetricQResult<Bytes> {
     debug!("encoding history request to protobuf bytes");
     let mut message = metricq::history::HistoryRequest::new();
 
-    message.start_time = request.start.as_nanos();
-    message.end_time = request.end.as_nanos();
-    message.interval_max = request.interval.as_micros() as i64;
+    message.start_time = request.start_time.as_nanos();
+    message.end_time = request.end_time.as_nanos();
+    message.interval_max = request.interval_max.as_micros() as i64;
 
-    message.type_ = metricq::history::history_request::RequestType::FLEX_TIMELINE.into();
+    message.type_ = match request.request_type {
+        HistoryRequestType::Timeline => history_request::RequestType::FLEX_TIMELINE.into(),
+        HistoryRequestType::AggregateTimeline => {
+            history_request::RequestType::AGGREGATE_TIMELINE.into()
+        }
+    };
+    // message.type_ = metricq::history::history_request::RequestType::FLEX_TIMELINE.into();
 
     let bytes = message.write_to_bytes()?;
     debug!(

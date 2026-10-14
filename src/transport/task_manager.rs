@@ -12,7 +12,7 @@ use tracing::{debug, error, info, instrument};
 /// Shutdown is initiated by cancelling the shared token and waiting for
 /// all spawned tasks to complete.
 #[derive(Debug)]
-pub(crate) struct TaskManager {
+pub struct TaskManager {
     token: CancellationToken,
     tasks: JoinSet<()>,
 }

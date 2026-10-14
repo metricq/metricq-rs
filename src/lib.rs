@@ -20,12 +20,25 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-pub mod client;
-pub mod codec;
-pub mod config;
-pub mod error;
-pub mod history;
-pub mod protobuf;
-pub mod sink;
-pub mod transport;
-pub mod types;
+mod client;
+mod codec;
+mod config;
+mod error;
+mod history;
+mod protobuf;
+mod sink;
+mod transport;
+mod types;
+
+pub use client::Client;
+pub use config::{
+    ClientConfig, ClientConfigBuilder, ReconnectPolicy, ReconnectPolicyBuilder, Timeouts,
+    TimeoutsBuilder,
+};
+pub use error::{MetricQError, MetricQResult};
+pub use history::{
+    HistoryClient, HistoryRequest, HistoryRequestBuilder, HistoryRequestType, HistoryResponse,
+};
+pub use sink::{DataConsumer, SinkClient};
+pub use types::value::{MetricTimeValue, TimeValue};
+pub use types::{MetricId, TimeDelta, Timestamp};

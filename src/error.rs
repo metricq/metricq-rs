@@ -1,5 +1,7 @@
 //! Error types returned by the `MetricQ` client.
 
+use std::time::SystemTimeError;
+
 use thiserror::Error;
 use tokio::sync::oneshot;
 
@@ -76,6 +78,18 @@ pub enum MetricQError {
     /// TODO
     #[error("failed to serialize to json")]
     JsonSerialize(#[from] serde_json::Error),
+
+    /// TODO
+    #[error("server side error: {_0}")]
+    Server(String),
+
+    /// TODO
+    #[error("failed to build {_0}")]
+    BuildError(String),
+
+    /// TODO
+    #[error("{_0}")]
+    SystemTimeError(#[from] SystemTimeError),
 }
 
 /// Result type used throughout the `MetricQ` client.

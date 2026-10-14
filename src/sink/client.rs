@@ -1,6 +1,6 @@
 //! Client implementation for subscribing to and consuming real-time metric streams from a sink.
 
-use std::time::Duration;
+use std::{fmt::Debug, time::Duration};
 
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, instrument};
@@ -49,34 +49,26 @@ impl SinkClient {
     ///
     /// Returns an error if the RPC request fails, the response cannot be parsed,
     /// connection to the data server fails, or merge consumption encounters an error.
-    #[instrument(skip(self, consumer, shutdown), fields(%metrics))]
-    pub async fn subscribe<C>(
+    #[instrument(skip(self, consumer, shutdown), fields(?metrics))]
+    pub async fn subscribe<C, S>(
         &self,
-        metrics: &str,
+        metrics: &[S],
         consumer: C,
         shutdown: CancellationToken,
     ) -> MetricQResult<()>
     where
         C: DataConsumer + Send,
+        S: AsRef<str> + serde::Serialize + Debug + Send + Sync,
     {
         info!("requesting sink subscription from manager");
-        let request_payload = serde_json::json!({
-            "function": "sink.subscribe",
-            "metrics": [metrics]
-        })
-        .to_string()
-        .into();
-
-        let response_bytes = self
+        let sub_response: SinkSubscribeResponse = self
             .rpc
-            .call(
+            .call_json(
                 self.management_exchange.clone(),
-                "sink.subscribe".into(),
-                request_payload,
+                "sink.subscribe",
+                serde_json::json!({ "metrics": metrics }),
             )
             .await?;
-
-        let sub_response: SinkSubscribeResponse = serde_json::from_slice(&response_bytes)?;
 
         // Derive the full AMQP URI from the vhost shorthand
         let data_server_uri =

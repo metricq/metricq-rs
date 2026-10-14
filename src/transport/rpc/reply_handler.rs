@@ -28,7 +28,7 @@ use crate::{
 /// pending request and are rejected.
 ///
 /// Successfully processed replies are acknoledged.
-pub(crate) struct RpcReplyHandler {
+pub struct RpcReplyHandler {
     registry: Arc<CorrelationRegistry<Bytes>>,
 }
 

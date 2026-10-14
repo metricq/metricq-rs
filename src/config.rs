@@ -1,10 +1,11 @@
 //! Configuration structures for the `MetricQ` client, including connection settings,
 //! timeouts, and policies.
 
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 
 /// Configuration settings for initializing and managing a `MetricQ` client connection.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Builder)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct ClientConfig {
     /// The AMQP connection URI (e.g. `"amqp://localhost/%2f"`).
@@ -45,7 +46,7 @@ impl Default for ClientConfig {
 
 /// Defines the retry policy for reconnecting to the AMQP broker after
 /// a connection failure.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Builder)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct ReconnectPolicy {
     /// The maximum number of reconnection attempts (`None` for infinite retries).
@@ -69,7 +70,7 @@ impl Default for ReconnectPolicy {
 }
 
 /// Timeout configuration settings for network and RPC operations.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Builder)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Timeouts {
     /// Timeout in milliseconds for individual RPC requests.
@@ -93,7 +94,7 @@ impl Default for Timeouts {
 /// # Note
 ///
 /// This needs to be used by implementing a designated writer.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Builder)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct BufferingPolicy {
     /// The maximum number of elements or bytes allowed in the buffer.

@@ -1,6 +1,7 @@
 //! History request configuration and types for querying metric data.
 
 use bytes::Bytes;
+use derive_builder::Builder;
 
 use crate::{
     codec::encode_request,
@@ -10,18 +11,20 @@ use crate::{
 
 /// Represents a request for historical metric data within a given
 /// timeframe and interval.
+#[derive(Debug, Clone, Builder)]
+#[builder(setter(into))]
 pub struct HistoryRequest {
     /// The start timestamp of the requested historical data range.
-    pub start: Timestamp,
+    pub start_time: Timestamp,
 
     /// The end timestamp of the requested historical data range.
-    pub end: Timestamp,
+    pub end_time: Timestamp,
 
     /// The maximum time interval/resolution between samples.
-    pub interval: TimeDelta,
+    pub interval_max: TimeDelta,
 
     /// The type of historical query to perform.
-    pub type_: HistoryRequestType,
+    pub request_type: HistoryRequestType,
 }
 
 impl HistoryRequest {
@@ -36,6 +39,7 @@ impl HistoryRequest {
 }
 
 /// Specifies the type of history request to execute.
+#[derive(Debug, Clone)]
 pub enum HistoryRequestType {
     /// Standard timeline query returning individual or flexible interval samples.
     Timeline,

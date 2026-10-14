@@ -26,7 +26,7 @@ use crate::{
 /// transport layer. They support publishing messages, declaring AMQP
 /// resources, and creating consumers.
 #[derive(Debug, Clone)]
-pub(crate) struct ChannelHandle {
+pub struct ChannelHandle {
     inner: Channel,
 }
 
